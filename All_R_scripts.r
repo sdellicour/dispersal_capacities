@@ -6,24 +6,14 @@ library(maptools)
 library(rgdal)
 library(seraphim)
 
-source("R_functions/rS_geo_patri_1.r")
-source("R_functions/rS_geo_patri_2.r")
 source("R_functions/simulatorBRW.r")
-source("R_functions/simulatorRRW1.r")
 source("R_functions/simulatorRRW2.r")
-source("R_functions/treeExtraction.r")
 
 # 1. Investigating the impact of sampling effort on the estimate of dispersal metrics (using BRW or RRW simulations)
 
-mccTree = readAnnotatedNexus("WNV_MCC.tree")
-mostRecentSamplingDatum = 2016.6475; nberOfExtractionFiles = 100
-if (!file.exists("WNV_MCC.csv"))
-	{
-		mcc_tab = treeExtraction(mccTree, mostRecentSamplingDatum)
-		write.csv(mcc_tab, "WNV_MCC.csv", row.names=F, quote=F)
-	}	else	{
-		mcc_tab = read.csv("WNV_MCC.csv", head=T)
-	}
+mostRecentSamplingDatum = 2016.6475
+nberOfExtractionFiles = 100
+mcc_tab = read.csv("WNV_MCC.csv", head=T)
 
 	# 1.1. Investigating the consistency of dispersal metrics when estimated on Brownian random walk (BRW) simulations
 
@@ -343,38 +333,6 @@ localTreeDirectories = c("GTEV_RRW_125", # Zhao et al. (2023, J. Virol.)
 						 "TULV_central_E", # Cirkovic et al. (2022, Vir. Evol.)
 						 "WNV_gamma_all") # Dellicour et al. (2022, Nat. Commun.)
 
-	# 2.1. Combining the two clades (A & K) for the PUUV dataset
-
-if (!file.exists("Observations/PUUV_AK_clades/TreeExtractions_1.csv"))
-	{
-		nberOfExtractionFiles = length(list.files("Observations/PUUV_A_cauchy"))
-		nberOfExtractionFiles = length(list.files("Observations/PUUV_K_constr"))
-		for (i in 1:nberOfExtractionFiles)
-			{
-				tab1 = read.csv(paste0("Observations/PUUV_A_cauchy/TreeExtractions_",i,".csv"))
-				tab2 = read.csv(paste0("Observations/PUUV_K_constr/TreeExtractions_",i,".csv"))
-				maxNodeID = max(tab1[,c("node1","node2")])
-				tab2[,c("node1","node2")] = tab2[,c("node1","node2")]+maxNodeID
-				tab3 = rbind(tab1, tab2)
-				write.csv(tab3, paste0("Observations/PUUV_AK_clades/TreeExtractions_",i,".csv"), row.names=F, quote=F)
-			}
-	}
-
-	# 2.2. Exploring the patterns of isolation-by-distance (IBD)
-
-for (i in 1:length(localTreeDirectories))
-	{
-		localTreesDirectory = paste0("Observations/",localTreeDirectories[i])
-		extractionFiles = list.files(localTreeDirectories[i])
-		nberOfExtractionFiles = length(extractionFiles[which(grepl("TreeExtraction",extractionFiles))])
-		rSs = rS_geo_patri_1(localTreesDirectory, nberOfExtractionFiles)
-		median = round(median(rSs),2); HPD = round(HDInterval::hdi(rSs)[1:2],2)
-		cat("\t",localTreeDirectories[i])
-		cat(": median rS = ",median,", 95% HPD = [",HPD[1],", ",HPD[2],"]","\n",sep="")
-	}
-
-	# 2.3. Estimating the different dispersal metrics (WLDV and WDC)
-
 for (i in 1:length(localTreeDirectories))
 	{
 		localTreesDirectory = paste0("Observations/",localTreeDirectories[i])
@@ -394,10 +352,9 @@ for (i in 1:length(localTreeDirectories))
 	{
 		if (file.exists(paste0("Dispersal_stats/",localTreeDirectories[i],"_estimated_dispersal_statistics.txt")))
 			{
-				tab = read.table(paste0("Dispersal_stats/",localTreeDirectories[i],"_estimated_dispersal_statistics.txt"), head=T)
-				vS = tab[,"weighted_branch_dispersal_velocity"]
-				median = round(median(vS),1); HPD = round(HDInterval::hdi(vS)[1:2],1)
 				cat("\t",localTreeDirectories[i])
+				tab = read.table(paste0("Dispersal_stats/",localTreeDirectories[i],"_estimated_dispersal_statistics.txt"), head=T)
+				vS = tab[,"weighted_branch_dispersal_velocity"]; median = round(median(vS),1); HPD = round(HDInterval::hdi(vS)[1:2],1)
 				cat(": median WLDV = ",median,", 95% HPD = [",HPD[1],", ",HPD[2],"]","\n",sep="")
 			}	else	{
 				cat("\t",localTreeDirectories[i],"\n")
@@ -407,11 +364,10 @@ for (i in 1:length(localTreeDirectories))
 	{
 		if (file.exists(paste0("Dispersal_stats/",localTreeDirectories[i],"_estimated_dispersal_statistics.txt")))
 			{
-				tab = read.table(paste0("Dispersal_stats/",localTreeDirectories[i],"_estimated_dispersal_statistics.txt"), head=T)
-				vS = tab[,"weighted_diffusion_coefficient"]
-				median = round(median(vS),0); HPD = round(HDInterval::hdi(vS)[1:2],0)
 				cat("\t",localTreeDirectories[i])
-				cat(": median WDC = ",median,", 95% HPD = [",HPD[1],", ",HPD[2],"]","\n",sep="")
+				tab = read.table(paste0("Dispersal_stats/",localTreeDirectories[i],"_estimated_dispersal_statistics.txt"), head=T)
+				vS = tab[,"isolation_by_distance_signal_rS"]; median = round(median(vS),1); HPD = round(HDInterval::hdi(vS)[1:2],1)
+				cat(": median IBD signal (rS) = ",median,", 95% HPD = [",HPD[1],", ",HPD[2],"]","\n",sep="")
 			}	else	{
 				cat("\t",localTreeDirectories[i],"\n")
 			}
