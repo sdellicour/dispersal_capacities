@@ -339,7 +339,7 @@ for (i in 1:length(localTreeDirectories))
 		extractionFiles = list.files(localTreeDirectories[i])
 		nberOfExtractionFiles = length(extractionFiles[which(grepl("TreeExtraction",extractionFiles))])
 		timeSlices = 100; onlyTipBranches = F; showingPlots = F
-		outputName = paste0("Dispersal_stats/",localTreesDirectory); nberOfCores = 5; slidingWindow = 1
+		outputName = paste0("Observations/Dispersal_stats/",localTreesDirectories[i]); nberOfCores = 10; slidingWindow = 1
 		spreadStatistics(localTreesDirectory, nberOfExtractionFiles, timeSlices, onlyTipBranches, showingPlots, outputName, nberOfCores, slidingWindow)
 	}
 for (i in 1:length(localTreeDirectories))
