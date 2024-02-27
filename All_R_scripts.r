@@ -333,43 +333,43 @@ localTreeDirectories = c("GTEV_RRW_125", # Zhao et al. (2023, J. Virol.)
 						 "TULV_central_E", # Cirkovic et al. (2022, Vir. Evol.)
 						 "WNV_gamma_all") # Dellicour et al. (2022, Nat. Commun.)
 
-for (i in 1:length(localTreeDirectories))
+for (i in 1:length(localTreesDirectories))
 	{
-		localTreesDirectory = paste0("Observations/",localTreeDirectories[i])
-		extractionFiles = list.files(localTreeDirectories[i])
+		localTreesDirectory = paste0("Observations/",localTreesDirectories[i])
+		extractionFiles = list.files(localTreesDirectory)
 		nberOfExtractionFiles = length(extractionFiles[which(grepl("TreeExtraction",extractionFiles))])
 		timeSlices = 100; onlyTipBranches = F; showingPlots = F
 		outputName = paste0("Observations/Dispersal_stats/",localTreesDirectories[i]); nberOfCores = 10; slidingWindow = 1
 		spreadStatistics(localTreesDirectory, nberOfExtractionFiles, timeSlices, onlyTipBranches, showingPlots, outputName, nberOfCores, slidingWindow)
 	}
-for (i in 1:length(localTreeDirectories))
+for (i in 1:length(localTreesDirectories))
 	{
-		tab = read.csv(paste0("Observations/",localTreeDirectories[i],"/TreeExtractions_",i,".csv"))
+		tab = read.csv(paste0("Observations/",localTreesDirectories[i],"/TreeExtractions_",i,".csv"))
 		tips = length(which(!tab[,"node2"]%in%tab[,"node1"]))
-		cat("\t",localTreeDirectories[i],": number of samples = ",tips,"\n",sep="")
+		cat("\t",localTreesDirectories[i],": number of samples = ",tips,"\n",sep="")
 	}
-for (i in 1:length(localTreeDirectories))
+for (i in 1:length(localTreesDirectories))
 	{
-		if (file.exists(paste0("Dispersal_stats/",localTreeDirectories[i],"_estimated_dispersal_statistics.txt")))
+		if (file.exists(paste0("Observations/Dispersal_stats/",localTreesDirectories[i],"_estimated_dispersal_statistics.txt")))
 			{
-				cat("\t",localTreeDirectories[i])
-				tab = read.table(paste0("Dispersal_stats/",localTreeDirectories[i],"_estimated_dispersal_statistics.txt"), head=T)
-				vS = tab[,"weighted_branch_dispersal_velocity"]; median = round(median(vS),1); HPD = round(HDInterval::hdi(vS)[1:2],1)
-				cat(": median WLDV = ",median,", 95% HPD = [",HPD[1],", ",HPD[2],"]","\n",sep="")
+				cat("\t",localTreesDirectories[i])
+				tab = read.table(paste0("Observations/Dispersal_stats/",localTreesDirectories[i],"_estimated_dispersal_statistics.txt"), head=T)
+				vS = tab[,"weighted_diffusion_coefficient"]; median = round(median(vS),1); HPD = round(HDInterval::hdi(vS)[1:2],1)
+				cat(": median WDC = ",median,", 95% HPD = [",HPD[1],", ",HPD[2],"]","\n",sep="")
 			}	else	{
-				cat("\t",localTreeDirectories[i],"\n")
+				cat("\t",localTreesDirectories[i],"\n")
 			}
 	}
-for (i in 1:length(localTreeDirectories))
+for (i in 1:length(localTreesDirectories))
 	{
-		if (file.exists(paste0("Dispersal_stats/",localTreeDirectories[i],"_estimated_dispersal_statistics.txt")))
+		if (file.exists(paste0("Observations/Dispersal_stats/",localTreesDirectories[i],"_estimated_dispersal_statistics.txt")))
 			{
-				cat("\t",localTreeDirectories[i])
-				tab = read.table(paste0("Dispersal_stats/",localTreeDirectories[i],"_estimated_dispersal_statistics.txt"), head=T)
+				cat("\t",localTreesDirectories[i])
+				tab = read.table(paste0("Observations/Dispersal_stats/",localTreesDirectories[i],"_estimated_dispersal_statistics.txt"), head=T)
 				vS = tab[,"isolation_by_distance_signal_rS"]; median = round(median(vS),1); HPD = round(HDInterval::hdi(vS)[1:2],1)
 				cat(": median IBD signal (rS) = ",median,", 95% HPD = [",HPD[1],", ",HPD[2],"]","\n",sep="")
 			}	else	{
-				cat("\t",localTreeDirectories[i],"\n")
+				cat("\t",localTreesDirectories[i],"\n")
 			}
 	}
 
