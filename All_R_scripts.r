@@ -57,9 +57,7 @@ dir.create(file.path(paste0(simulationDirectory,"/All_200_simulations")), showWa
 dir.create(file.path(paste0(simulationDirectory,"/Subsampling_of_tips")), showWarnings=F)
 envVariable = crop(raster("Template_R.tif"), extent(-100,-50,20,60))
 envVariable[] = 1; resistance = FALSE
-mcc_tab = read.csv("WNV_MCC.csv", head=T)
-ancestID = which(!mcc_tab[,"node1"]%in%mcc_tab[,"node2"])[1]
-ancestPosition = c(mcc_tab[ancestID,"startLon"], mcc_tab[ancestID,"startLat"])
+ancestPosition = c(-73.79730, 40.94328)
 birthRate = 0.6
 samplingRate = 0.4
 startingYear = 1999
