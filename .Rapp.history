@@ -1,5 +1,0 @@
-mcc_tab = read.csv("WNV_MCC.csv", head=T)
-mcc_tab = read.csv("WNV_MCC.csv", head=T)
-ancestID = which(!mcc_tab[,"node1"]%in%mcc_tab[,"node2"])[1]
-ancestPosition = c(mcc_tab[ancestID,"startLon"], mcc_tab[ancestID,"startLat"])
-ancestPosition
