@@ -11,10 +11,6 @@ source("R_functions/simulatorRRW2.r")
 
 # 1. Investigating the impact of sampling effort on the estimate of dispersal metrics (using BRW or RRW simulations)
 
-mostRecentSamplingDatum = 2016.6475
-nberOfExtractionFiles = 100
-mcc_tab = read.csv("WNV_MCC.csv", head=T)
-
 	# 1.1. Investigating the consistency of dispersal metrics when estimated on Brownian random walk (BRW) simulations
 
 simulationDirectory = "Simulations_1"
@@ -23,9 +19,7 @@ dir.create(file.path(paste0(simulationDirectory,"/All_200_simulations")), showWa
 dir.create(file.path(paste0(simulationDirectory,"/Subsampling_of_tips")), showWarnings=F)
 envVariable = raster("Template_R.tif"); envVariable[] = 1
 d = res(envVariable)[1]*2
-mcc_tab = read.csv("WNV_MCC.csv", head=T)
-ancestID = which(!mcc_tab[,"node1"]%in%mcc_tab[,"node2"])[1]
-ancestPosition = c(mcc_tab[ancestID,"startLon"], mcc_tab[ancestID,"startLat"])
+ancestPosition = c(-73.79730, 40.94328)
 birthRate = 0.6
 samplingRate = 0.4
 startingYear = 1999
@@ -313,25 +307,45 @@ dev.off()
 
 # 2. Comparing dispersal metrics estimated on real genomic datasets of viruses spreading in animal populations
 
-localTreeDirectories = c("GTEV_RRW_125", # Zhao et al. (2023, J. Virol.)
-						 "H3N1_Belgium", # Van Borm et al. (2023, Emerg. Infect. Dis.)
-						 "H5N1_ME_all_c", # Dellicour et al. (2020, Bioinformatics)
-						 "LASV_S_align_3", # Klitting et al. (2022, Nat. Commun.)
-						 "LSVD_all_1_WTs", # Van Borm et al. (2023, J. Virol.)
-						 "NVAV_BE_moles", # Laenen et al. (2016, Mol. Ecol.)
-						 "PDCV_Dlat_pols", # He et al. (2020, Mol. Biol. Evol.)
-						 "POWV_US_ext2", # Vogels et al. (2023, PNAS)
-						 "PUUV_AK_clades", # Laenen et al. (2019, Vir. Evol.)
-						 "RABV_AF_dogs", # Talbi et al. (2010, PLoS Path.)
-						 "RABV_BR_bats", # Vieira et al. (2013, Virus Genes)
-						 "RABV_IR_all_c", # Dellicour et al. (2019, Mol. Ecol.)
-						 "RABV_NEA_bats", # Torres et al. (2014, Mol. Ecol.)
-						 "RABV_PE_L1-L3", # Streicker et al. (2016, PNAS)
-						 "RABV_US_racc", # Biek et al. (2017, PNAS)
-						 "RABV_US_skunk", # Kuzmina et al. (2013, PLoS One)
-						 "RABV_YU_fourC", # Tian et al. (2018, PLoS Path.)
-						 "TULV_central_E", # Cirkovic et al. (2022, Vir. Evol.)
-						 "WNV_gamma_all") # Dellicour et al. (2022, Nat. Commun.)
+localTreesDirectories = c("ASFV_EU_spread", # Netherton/Dellicour et al. (in prep.)
+						  "GTEV_RRW_125", # Zhao et al. (2023, J. Virol.)
+						  "H3N1_Belgium", # Van Borm et al. (2023, Emerg. Infect. Dis.)
+						  "H5N1_ME_all_c", # Dellicour et al. (2020, Bioinformatics)
+						  "LASV_S_align_3", # Klitting et al. (2022, Nat. Commun.)
+						  "LSVD_all_1_WTs", # Van Borm et al. (2023, J. Virol.)
+						  "NVAV_BE_moles", # Laenen et al. (2016, Mol. Ecol.)
+						  "PDCV_Dlat_pols", # He et al. (2020, Mol. Biol. Evol.)
+						  "POWV_US_ext2", # Vogels et al. (2023, PNAS)
+						  "PUUV_AK_clades", # Laenen et al. (2019, Vir. Evol.)
+						  "RABV_AF_dogs", # Talbi et al. (2010, PLoS Path.)
+						  "RABV_BR_bats", # Vieira et al. (2013, Virus Genes)
+						  "RABV_IR_all_c", # Dellicour et al. (2019, Mol. Ecol.)
+						  "RABV_NEA_bats", # Torres et al. (2014, Mol. Ecol.)
+						  "RABV_PE_L1-L3", # Streicker et al. (2016, PNAS)
+						  "RABV_US_racc", # Biek et al. (2017, PNAS)
+						  "RABV_US_skunk", # Kuzmina et al. (2013, PLoS One)
+						  "RABV_YU_fourC", # Tian et al. (2018, PLoS Path.)
+						  "TULV_Europe_C", # Cirkovic et al. (2022, Vir. Evol.)
+						  "WNV_gamma_all") # Dellicour et al. (2022, Nat. Commun.)
+dataset_names = c("","Getah virus, China", # Zhao et al. (2023, J. Virol.)
+				  "AIV H3N1, Belgium", # Van Borm et al. (2023, Emerg. Infect. Dis.)
+				  "AIV H5N1, Mekong region", # Dellicour et al. (2020, Bioinformatics)
+				  "Lassa virus, Africa", # Klitting et al. (2022, Nat. Commun.)
+				  "Lumpy skin disease virus", # Van Borm et al. (2023, J. Virol.)
+				  "Nova virus, Belgium", # Laenen et al. (2016, Mol. Ecol.)
+				  "Porcine deltacoronavirus, China", # He et al. (2020, Mol. Biol. Evol.)
+				  "Powassan virus, USA", # Vogels et al. (2023, PNAS)
+				  "Puumala virus, Belgium", # Laenen et al. (2019, Vir. Evol.)
+				  "Rabies virus (dogs), North Africa", # Talbi et al. (2010, PLoS Path.)
+				  "Rabies virus (bats), eastern Brazil", # Vieira et al. (2013, Virus Genes)
+				  "Rabies virus (dogs), Iran", # Dellicour et al. (2019, Mol. Ecol.)
+				  "Rabies virus (bats), Argentina", # Torres et al. (2014, Mol. Ecol.)
+				  "Rabies virus (bats)*, Peru", # Streicker et al. (2016, PNAS)
+				  "Rabies virus (raccoons), USA", # Biek et al. (2017, PNAS)
+				  "Rabies virus (skunks), USA", # Kuzmina et al. (2013, PLoS One)
+				  "Rabies virus (dogs), Yunnan (CH)", # Tian et al. (2018, PLoS Path.)
+				  "Tula virus, European clade", # Cirkovic et al. (2022, Vir. Evol.)
+				  "West Nile virus, North America") # Dellicour et al. (2022, Nat. Commun.)
 
 for (i in 1:length(localTreesDirectories))
 	{
@@ -350,26 +364,16 @@ for (i in 1:length(localTreesDirectories))
 	}
 for (i in 1:length(localTreesDirectories))
 	{
-		if (file.exists(paste0("Observations/Dispersal_stats/",localTreesDirectories[i],"_estimated_dispersal_statistics.txt")))
-			{
-				cat("\t",localTreesDirectories[i])
-				tab = read.table(paste0("Observations/Dispersal_stats/",localTreesDirectories[i],"_estimated_dispersal_statistics.txt"), head=T)
-				vS = tab[,"weighted_diffusion_coefficient"]; median = round(median(vS),1); HPD = round(HDInterval::hdi(vS)[1:2],1)
-				cat(": median WDC = ",median,", 95% HPD = [",HPD[1],", ",HPD[2],"]","\n",sep="")
-			}	else	{
-				cat("\t",localTreesDirectories[i],"\n")
-			}
+		cat("\t",localTreesDirectories[i])
+		tab = read.table(paste0("Observations/Dispersal_stats/",localTreesDirectories[i],"_estimated_dispersal_statistics.txt"), head=T)
+		vS = tab[,"weighted_diffusion_coefficient"]; median = round(median(vS),1); HPD = round(HDInterval::hdi(vS)[1:2],1)
+		cat(": median WDC = ",median,", 95% HPD = [",HPD[1],", ",HPD[2],"]","\n",sep="")
 	}
 for (i in 1:length(localTreesDirectories))
 	{
-		if (file.exists(paste0("Observations/Dispersal_stats/",localTreesDirectories[i],"_estimated_dispersal_statistics.txt")))
-			{
-				cat("\t",localTreesDirectories[i])
-				tab = read.table(paste0("Observations/Dispersal_stats/",localTreesDirectories[i],"_estimated_dispersal_statistics.txt"), head=T)
-				vS = tab[,"isolation_by_distance_signal_rS"]; median = round(median(vS),1); HPD = round(HDInterval::hdi(vS)[1:2],1)
-				cat(": median IBD signal (rS) = ",median,", 95% HPD = [",HPD[1],", ",HPD[2],"]","\n",sep="")
-			}	else	{
-				cat("\t",localTreesDirectories[i],"\n")
-			}
+		cat("\t",localTreesDirectories[i])
+		tab = read.table(paste0("Observations/Dispersal_stats/",localTreesDirectories[i],"_estimated_dispersal_statistics.txt"), head=T)
+		vS = tab[,"isolation_by_distance_signal_rS"]; median = round(median(vS),2); HPD = round(HDInterval::hdi(vS)[1:2],2)
+		cat(": median IBD signal (rS) = ",median,", 95% HPD = [",HPD[1],", ",HPD[2],"]","\n",sep="")
 	}
 
