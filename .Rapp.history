@@ -1,0 +1,18 @@
+library(adephylo)#
+library(diagram)#
+library(HDInterval)#
+library(lubridate)#
+library(maptools)#
+library(rgdal)#
+library(seraphim)#
+#
+source("R_functions/simulatorBRW.r")#
+source("R_functions/simulatorRRW2.r")
+simulationDirectory = "Simulations_2"; scalingValue = 1.5
+dir.create(file.path(paste0(simulationDirectory)), showWarnings=F)
+dir.create(file.path(paste0(simulationDirectory,"/All_200_simulations")), showWarnings=F)
+dir.create(file.path(paste0(simulationDirectory,"/Subsampling_of_tips")), showWarnings=F)
+envVariable = crop(raster("Template_R.tif"), extent(-100,-50,20,60))
+envVariable[] = 1; resistance = FALSE
+res(envVariable)
+1.5/0.00833333
