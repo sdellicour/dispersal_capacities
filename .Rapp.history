@@ -1,0 +1,41 @@
+library(adephylo)#
+library(diagram)#
+library(HDInterval)#
+library(lubridate)#
+library(maptools)#
+library(rgdal)#
+library(ridgeline)#
+library(seraphim)#
+library(vioplot)#
+#
+# 1. Investigating the impact of sampling effort on the estimate of dispersal metrics (using BRW or RRW simulations)#
+#
+	# 1.1. Investigating the consistency of dispersal metrics when estimated on Brownian random walk (BRW) simulations#
+#
+		# 1.1.1. Birth-death simulations#
+#
+simulationDirectory = "Simulations_1/BirthDeath_simulations"; RRW = FALSE; scalingValue = 1.5#
+envVariable = crop(raster("Template_R.tif"), extent(-100,-50,20,60))#
+envVariable[] = 1#
+sigma = scalingValue*res(envVariable)[1]#
+ancestID = which(!mcc_tab[,"node1"]%in%mcc_tab[,"node2"])[1]#
+ancestPosition = c(mcc_tab[ancestID,"startLon"], mcc_tab[ancestID,"startLat"])#
+birthRate = 0.6#
+samplingRate = 0.4#
+startingYear = 1999#
+samplingWindow = cbind(2001,2017)#
+timeSlice = 1/365.25#
+timeIntervale = 1#
+showingPlots = FALSE
+simulationDirectory = "Simulations_1/BirthDeath_simulations"; RRW = FALSE; scalingValue = 1.5#
+envVariable = crop(raster("Template_R.tif"), extent(-100,-50,20,60))#
+envVariable[] = 1#
+sigma = scalingValue*res(envVariable)[1]#
+ancestPosition = c(-73.79730, 40.94328)#
+birthRate = 0.6#
+samplingRate = 0.4#
+startingYear = 1999#
+samplingWindow = cbind(2001,2017)#
+timeSlice = 1/365.25#
+timeIntervale = 1#
+showingPlots = FALSE
