@@ -431,6 +431,630 @@ title(ylab="IBD signal (Pearson coefficient)", cex.lab=cexLab, mgp=c(2.1,0,0), c
 title(xlab="Number of tip nodes in the subsampled tree", cex.lab=cexLab, mgp=c(1.2,0,0), col.lab="gray30")
 dev.off()
 
+	# 1.4. Investigating the consistency of dispersal metrics when RRW simulations are conducted along subtrees
+
+mcc_tab = read.csv("WNV_MCC.csv", head=T)
+mostRecentSamplingDatum = 2016.6475
+nberOfSimulations = 5; nberOfExtractionFiles = 100
+nberOfBranchesToKeep = seq(800,100,-100)
+log = read.table("WNV_100.log",head=T)
+trees = readAnnotatedNexus("WNV_100.trees")
+usa = readRDS("USA_0_sp.rds")
+areas = rep(NA, length(usa@polygons[[1]]@Polygons))
+for (i in 1:length(usa@polygons[[1]]@Polygons))
+	{
+		areas[i] = usa@polygons[[1]]@Polygons[[i]]@area
+	}
+index = which(areas==max(areas))
+p = Polygon(usa@polygons[[1]]@Polygons[[index]]@coords)
+ps = Polygons(list(p),1); usa = SpatialPolygons(list(ps))
+if (!file.exists("USA_shapefile/USA_ligth.shp"))
+	{
+		usa_sf = st_as_sf(usa); usa_simplified = st_simplify(usa_sf, dTolerance=0.01)
+		st_write(usa_simplified, "USA_shapefile/USA_ligth.shp", append=F)
+	}
+usa_light = shapefile("USA_shapefile/USA_ligth.shp")
+
+		# 1.4.1. Simulating a RRW diffusion process along several entire posterior trees
+
+hS = sample(1:100, nberOfSimulations, replace=F)
+for (h in 1:nberOfSimulations)
+	{
+		tab = read.csv(paste0("WNV_100_ext/TreeExtractions_",hS[h],".csv"), head=T)
+		all_rates = c(); geoDists = matrix(nrow=dim(tab)[1], ncol=1)
+		for (i in 1:length(trees[[hS[h]]]$annotations))
+			{
+				all_rates = c(all_rates, trees[[hS[h]]]$annotations[[i]]$location.rate)
+			}
+		for (i in 1:dim(tab)[1])
+			{
+				x1 = cbind(tab[i,"startLon"], tab[i,"startLat"])
+				x2 = cbind(tab[i,"endLon"], tab[i,"endLat"])
+				geoDists[i,1] = rdist.earth(x1, x2, miles=F, R=NULL)
+			}
+		ancestID = which(!tab[,"node1"]%in%tab[,"node2"])[1]
+		ancestPosition = c(tab[ancestID,"startLon"], tab[ancestID,"startLat"])
+		col11 = log[hS[h],"treeLengthPrecision1"]
+		col12 = log[hS[h],"treeLengthPrecision3"]
+		col22 = log[hS[h],"treeLengthPrecision2"]
+		my_prec = c(col11, col12, col12, col22)
+		reciprocalRates = TRUE; n1 = 100; n2 = 100
+		showingPlots = TRUE; newPlot = TRUE
+		showingPlots = FALSE; newPlot = FALSE
+		my_var = solve(matrix(my_prec,nrow=2))
+		sigma1 = sqrt(my_var[1,1]); sigma2 = sqrt(my_var[2,2])
+		sigmas = c(sigma1, sigma2); # source("simulatorRRW1_mod.r")
+		cor = my_var[1,2]/(sqrt(my_var[1,1])*sqrt(my_var[2,2]))
+		localTreesDirectory = "Simulations_3/Based_on_posterior_trees_constrained/WNV_gamma_ALL"
+		envVariables = list(raster("Template_1.tif"))
+		envVariables[[1]] = mask(crop(envVariables[[1]],usa),usa) # constrained		
+		for (i in 0:0) # length(nberOfBranchesToKeep))
+			{
+				if (i == 0)
+					{
+						if (h == 1) dir.create(file.path(localTreesDirectory), showWarnings=F)
+						tree = trees[[hS[h]]]; rates = all_rates
+						if (!file.exists(paste(localTreesDirectory,"/TreeSimulations_",h,".csv",sep="")))
+							{
+								output = simulatorRRW1(tree, rates, sigmas, cor, envVariables, mostRecentSamplingDatum,
+													   ancestPosition, reciprocalRates, n1, n2, showingPlots, newPlot)
+								write.csv(output, as.character(paste0(localTreesDirectory,"/TreeSimulations_",h,".csv")), row.names=F, quote=F)
+								write.tree(tree, as.character(paste0(localTreesDirectory,"/TreeSimulations_",h,".tre")))
+							}
+					}	else	{
+						localTreesDirectory1 = localTreesDirectory; localTreesDirectory2 = gsub("ALL",nberOfBranchesToKeep[i],localTreesDirectory1)
+						if (h == 1) dir.create(file.path(localTreesDirectory2), showWarnings=F)
+						if (i == 1) tree = trees[[hS[h]]]
+						tipNodes = tree$edge[which(!tree$edge[,2]%in%tree$edge[,1]),2]
+						tree = drop.tip(tree, sample(tipNodes,length(tipNodes)-nberOfBranchesToKeep[i],replace=F))
+						rates = sample(all_rates, dim(tree$edge)[1], replace=F)
+						if (!file.exists(paste(localTreesDirectory2,"/TreeSimulations_",h,".csv",sep="")))
+							{
+								output = simulatorRRW1(tree, rates, sigmas, cor, envVariables, mostRecentSamplingDatum,
+													   ancestPosition, reciprocalRates, n1, n2, showingPlots, newPlot)
+								write.csv(output, as.character(paste0(localTreesDirectory2,"/TreeSimulations_",h,".csv")), row.names=F, quote=F)
+								write.tree(tree, as.character(paste0(localTreesDirectory2,"/TreeSimulations_",h,".tre")))
+							}
+					}
+			}
+		localTreesDirectory = "Simulations_3/Based_on_posterior_trees_unconstrained/WNV_gamma_ALL"
+		envVariables = list(raster("Template_1.tif"))
+		envVariables[[1]][] = 0 # unconstrained (within the entire world)
+		for (i in 0:0) # length(nberOfBranchesToKeep))
+			{
+				if (i == 0)
+					{
+						if (h == 1) dir.create(file.path(localTreesDirectory), showWarnings=F)
+						tree = trees[[hS[h]]]; rates = all_rates
+						if (!file.exists(paste(localTreesDirectory,"/TreeSimulations_",h,".csv",sep="")))
+							{
+								output = simulatorRRW1(tree, rates, sigmas, cor, envVariables, mostRecentSamplingDatum,
+													   ancestPosition, reciprocalRates, n1, n2, showingPlots, newPlot)
+								write.csv(output, as.character(paste0(localTreesDirectory,"/TreeSimulations_",h,".csv")), row.names=F, quote=F)
+								write.tree(tree, as.character(paste0(localTreesDirectory,"/TreeSimulations_",h,".tre")))
+							}
+					}	else	{
+						localTreesDirectory1 = localTreesDirectory; localTreesDirectory2 = gsub("ALL",nberOfBranchesToKeep[i],localTreesDirectory1)
+						if (h == 1) dir.create(file.path(localTreesDirectory2), showWarnings=F)
+						if (i == 1) tree = trees[[hS[h]]]
+						tipNodes = tree$edge[which(!tree$edge[,2]%in%tree$edge[,1]),2]
+						tree = drop.tip(tree, sample(tipNodes,length(tipNodes)-nberOfBranchesToKeep[i],replace=F))
+						rates = sample(all_rates, dim(tree$edge)[1], replace=F)
+						if (!file.exists(paste(localTreesDirectory2,"/TreeSimulations_",h,".csv",sep="")))
+							{
+								output = simulatorRRW1(tree, rates, sigmas, cor, envVariables, mostRecentSamplingDatum,
+													   ancestPosition, reciprocalRates, n1, n2, showingPlots, newPlot)
+								write.csv(output, as.character(paste0(localTreesDirectory2,"/TreeSimulations_",h,".csv")), row.names=F, quote=F)
+								write.tree(tree, as.character(paste0(localTreesDirectory2,"/TreeSimulations_",h,".tre")))
+							}
+					}
+			}
+	}
+startingYear = 1999; samplingWindow = cbind(2001,2017)
+simulationDirectory = "Simulations_3/Based_on_posterior_trees_unconstrained/WNV_gamma_ALL"
+for (i in 1:nberOfSimulations)
+	{
+		pdf(paste0(simulationDirectory,"/TreeSimulations_",i,".pdf"), width=8, height=7)
+		par(mfrow=c(1,2), mgp=c(0,0,0), oma=c(0,0,0,0), mar=c(1.4,0.5,0.5,0.5), lwd=0.2, col="gray50")		
+		colourScale = colorRampPalette(brewer.pal(9,"YlGnBu"))(131)[1:101]
+		tab = read.csv(paste0(simulationDirectory,"/TreeSimulations_",i,".csv"), head=T)
+		tab[,c("startLon","endLon")] = tab[,c("startLon","endLon")]-ancestPosition[1]
+		tab[,c("startLat","endLat")] = tab[,c("startLat","endLat")]-ancestPosition[2]
+		tree = read.tree(paste0(simulationDirectory,"/TreeSimulations_",i,".tre"))
+		col_start = colourScale[1]; cols3 = colourScale[(((nodeHeights(tree)[,2])/(samplingWindow[2]-startingYear))*100)+1]
+		plot(tree, show.tip.label=F, edge.width=0.5, edge.col="gray50")
+		for (j in 1:dim(tree$edge)[1])
+			{
+				if (j == 1)
+					{
+						nodelabels(node=tree$edge[j,1], pch=16, cex=0.5, col=col_start)
+						nodelabels(node=tree$edge[j,1], pch=1, cex=0.5, col="gray30", lwd=0.25)
+					}
+				nodelabels(node=tree$edge[j,2], pch=16, cex=0.5, col=cols3[j])
+				nodelabels(node=tree$edge[j,2], pch=1, cex=0.5, col="gray30", lwd=0.25)
+			}
+		axis(side=1, lwd.tick=0.3, cex.axis=0.5, mgp=c(0,-0.10,0), lwd=0.3, tck=-0.010, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,20,5))
+		startingYear = min(tab[,"startYear"]); col_start = colourScale[1]
+		cols2 = colourScale[(((tab[,"endYear"]-startingYear)/(samplingWindow[2]-startingYear))*100)+1]
+		xMin = min(tab[,c("startLon","endLon")]); xMax = max(tab[,c("startLon","endLon")]); dX = xMax-xMin
+		yMin = min(tab[,c("startLat","endLat")]); yMax = max(tab[,c("startLat","endLat")]); dY = yMax-yMin
+		plot(extent(xMin,xMax,yMin,yMax), col=NA, ann=F, axes=F, asp=1)
+		for (j in 1:dim(tab)[1])
+			{	
+				curvedarrow(cbind(tab[j,"startLon"],tab[j,"startLat"]), cbind(tab[j,"endLon"],tab[j,"endLat"]), arr.length=0,
+							arr.width=0, lwd=0.3, lty=1, lcol="gray50", arr.col=NA, arr.pos=F, curve=0.1, dr=NA, endhead=F)
+			}
+		for (j in dim(tab)[1]:1)
+			{
+				if (j == 1)
+					{
+						points(cbind(tab[j,"startLon"],tab[j,"startLat"]), pch=16, cex=0.5, col=col_start)
+						points(cbind(tab[j,"startLon"],tab[j,"startLat"]), pch=1, cex=0.5, col=rgb(1,1,1,255,maxColorValue=255), lwd=0.25)
+					}
+				points(cbind(tab[j,"endLon"],tab[j,"endLat"]), pch=16, cex=0.5, col=cols2[j])
+				points(cbind(tab[j,"endLon"],tab[j,"endLat"]), pch=1, cex=0.5, col=rgb(1,1,1,255,maxColorValue=255), lwd=0.25)
+			}
+		axis(side=1, lwd.tick=0.3, cex.axis=0.5, mgp=c(0,-0.10,0), lwd=0.3, tck=-0.010, col.tick="gray30", col.axis="gray30", col="gray30")
+		axis(side=2, lwd.tick=0.3, cex.axis=0.5, mgp=c(0,0.20,0), lwd=0.3, tck=-0.010, col.tick="gray30", col.axis="gray30", col="gray30")
+		dev.off()
+	}
+simulationDirectory = "Simulations_3/Based_on_posterior_trees_constrained/WNV_gamma_ALL"
+for (i in 1:(nberOfSimulations+1))
+	{
+		pdf(paste0(simulationDirectory,"/TreeSimulations_",i,".pdf"), width=8, height=7) # dev.new(width=8, height=7)
+		par(mfrow=c(2,1), mgp=c(0,0,0), oma=c(0.75,0,0.75,0), mar=c(0,0,0,0), lwd=0.2, col="gray50")		
+		tab = read.csv(paste0(simulationDirectory,"/TreeSimulations_",i,".csv"), head=T)
+		tree = read.tree(paste0(simulationDirectory,"/TreeSimulations_",i,".tre"))
+		col_start = colorRampPalette(brewer.pal(9,"PuBu"))(101)[1]
+		cols3 = colorRampPalette(brewer.pal(9,"PuBu"))(101)[(((nodeHeights(tree)[,2])/(samplingWindow[2]-startingYear))*100)+1]
+		plot(tree, show.tip.label=F, edge.width=0.25, col="gray30")
+		for (j in 1:dim(tree$edge)[1])
+			{
+				if (j == 1)
+					{
+						nodelabels(node=tree$edge[j,1], pch=16, cex=0.6, col=col_start)
+						nodelabels(node=tree$edge[j,1], pch=1, cex=0.6, col="gray30", lwd=0.25)
+					}
+				nodelabels(node=tree$edge[j,2], pch=16, cex=0.6, col=cols3[j])
+				nodelabels(node=tree$edge[j,2], pch=1, cex=0.6, col="gray30", lwd=0.25)
+			}
+		if (i == 6)
+			{
+				axis(side=1, lwd.tick=0.3, cex.axis=0.5, mgp=c(0,-0.2,0), lwd=0.3, tck=-0.010, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(-4,21,5), labels=seq(1995,2020,5))
+			}
+		startingYear = min(tab[,"startYear"]); col_start = colorRampPalette(brewer.pal(9,"PuBu"))(101)[1]
+		cols2 = colorRampPalette(brewer.pal(9,"PuBu"))(101)[(((tab[,"endYear"]-startingYear)/(samplingWindow[2]-startingYear))*100)+1]
+		plot(usa_light, col="gray95", border="gray50", lwd=0.5, ann=F, axes=F)
+		for (j in 1:dim(tab)[1])
+			{	
+				curvedarrow(cbind(tab[j,"startLon"],tab[j,"startLat"]), cbind(tab[j,"endLon"],tab[j,"endLat"]), arr.length=0,
+							arr.width=0, lwd=0.3, lty=1, lcol="gray30", arr.col=NA, arr.pos=F, curve=0.1, dr=NA, endhead=F)
+			}
+		for (j in dim(tab)[1]:1)
+			{
+				if (j == 1)
+					{
+						points(cbind(tab[j,"startLon"],tab[j,"startLat"]), pch=16, cex=0.6, col=col_start)
+						points(cbind(tab[j,"startLon"],tab[j,"startLat"]), pch=1, cex=0.6, col=rgb(1,1,1,255,maxColorValue=255), lwd=0.25)
+					}
+				points(cbind(tab[j,"endLon"],tab[j,"endLat"]), pch=16, cex=0.6, col=cols2[j])
+				points(cbind(tab[j,"endLon"],tab[j,"endLat"]), pch=1, cex=0.6, col=rgb(1,1,1,255,maxColorValue=255), lwd=0.25)
+			}
+		dev.off()
+	}
+
+		# 1.4.2. Preparing the continuous phylogeographic analyses along all 100 posterior trees
+
+for (h in 1:2)
+	{
+		if (h == 1) simulationDirectory1 = "Simulations_3/Based_on_posterior_trees_unconstrained/WNV_gamma_ALL"
+		if (h == 2) simulationDirectory1 = "Simulations_3/Based_on_posterior_trees_constrained/WNV_gamma_ALL"
+		for (i in 1:nberOfSimulations)
+			{
+				for (j in 1:length(nberOfBranchesToKeep))
+					{
+						simulationDirectory2 = gsub("gamma","unif_S",gsub("ALL",nberOfBranchesToKeep[j],simulationDirectory1))
+						if (i == 1) dir.create(file.path(simulationDirectory2), showWarnings=F)
+						if (j == 1)
+							{
+								tree = read.tree(paste0(simulationDirectory1,"/TreeSimulations_",i,".tre"))
+								tab1 = read.csv(paste0(simulationDirectory1,"/TreeSimulations_",i,".csv"), head=T)
+								for (k in 1:dim(tree$edge)[1])
+									{
+										index1 = which(tab1[,"node1"]==tree$edge[k,1])
+										index2 = which(tab1[,"node2"]==tree$edge[k,2])
+										# if (index1 != index2) print(c(i,j,k)) # it is not the case...
+									}
+								tree$tip.label = gsub("'","",tree$tip.label)
+							}
+						tipNodes = tree$edge[which(!tree$edge[,2]%in%tree$edge[,1]),2]
+						nodesToDiscard = sample(tipNodes,length(tipNodes)-nberOfBranchesToKeep[j],replace=F)
+						tree = drop.tip(tree, nodesToDiscard); subTrees = list()
+						for (k in 1:length(trees))
+							{
+								subTrees[[k]] = drop.tip(trees[[k]], trees[[k]]$tip.label[!trees[[k]]$tip.label%in%tree$tip.label])
+							}
+						class(subTrees) = "multiPhylo"	
+						writeNexus(subTrees, paste0(simulationDirectory2,"/EmpiricalTrees_",i,".trees"))
+						tab2 = matrix(nrow=length(tree$tip.label), ncol=4); tab2[,1] = gsub("'","",tree$tip.label)
+						colnames(tab2) = c("trait","collection_date","latitude","longitude")
+						for (k in 1:length(tree$tip.label))
+							{
+								index = which(tab1[,"node2"]==k) # wrong
+								index = which(tab1[,"tipLabel"]==tree$tip.label[k])
+								tab2[k,"collection_date"] = tab1[index,"endYear"]
+								tab2[k,"latitude"] = tab1[index,"endLat"]
+								tab2[k,"longitude"] = tab1[index,"endLon"]
+							}
+						template = scan("LogN_tmp.xml", what="", sep="\n", quiet=T, blank.lines.skip=F)
+						sink(file=paste0(simulationDirectory2,"/TreeSimulations_",i,".xml"))
+						for (k in 1:length(template))
+							{
+								if (grepl("SIMULATION_NAME",template[k]))
+									{
+										template[k] = gsub("SIMULATION_NAME",paste0(simulationDirectory2,"/TreeSimulations_",i),template[k])
+									}
+							}
+						for (k in 1:length(template))
+							{
+								cat(template[k],"\n")
+								if (grepl("Insert taxa blocks",template[k]))
+									{
+										cat(paste0("\t<taxa id=\"taxa\">","\n"))
+										for (m in 1:dim(tab2)[1])
+											{
+												if (!is.na(tab2[m,"longitude"]))
+													{
+														collectionDate = tab2[m,"collection_date"]
+														latitude = round(as.numeric(tab2[m,"latitude"]),4)
+														longitude = round(as.numeric(tab2[m,"longitude"]),4)								
+														cat(paste0("\t\t<taxon id=\"",tab2[m,"trait"],"\">","\n"))
+														cat(paste0("\t\t\t<date value=\"",collectionDate,"\" direction=\"forwards\" units=\"years\"/>","\n"))
+														cat("\t\t\t<attr name=\"latitude\">\n")
+														cat(paste0("\t\t\t\t",latitude,"\n"))
+														cat("\t\t\t</attr>\n")
+														cat("\t\t\t<attr name=\"longitude\">\n")
+														cat(paste0("\t\t\t\t",longitude,"\n"))
+														cat("\t\t\t</attr>\n")
+														cat("\t\t\t<attr name=\"location\">\n")
+														cat(paste0("\t\t\t\t",latitude," ",longitude,"\n"))
+														cat("\t\t\t</attr>\n")
+														cat("\t\t</taxon>\n")
+													}
+											}
+										cat("\t</taxa>","\n")
+									}
+								if (grepl("Insert alignment blocks",template[k]))
+									{
+										cat(paste0("\t<alignment id=\"alignment\" dataType=\"nucleotide\">","\n"))
+										for (m in 1:dim(tab2)[1])
+											{
+												if (!is.na(tab2[m,"longitude"]))
+													{
+														cat("\t\t<sequence>\n")
+														cat(paste0("\t\t\t<taxon idref=\"",tab2[m,"trait"],"\"/>","\n"))
+														cat("\t\t\tNNNN\n")
+														cat("\t\t</sequence>\n")
+													}
+											}
+										cat("\t</alignment>","\n")
+									}
+								if (grepl("Insert starting tree blocks",template[k]))
+									{
+										cat(paste0("\t<empiricalTreeDistributionModel id=\"treeModel\" fileName=\"",simulationDirectory2,"/EmpiricalTrees_",i,".trees\">","\n"))
+										cat(paste0("\t\t<taxa idref=\"taxa\"/>","\n"))
+										cat("\t</empiricalTreeDistributionModel>","\n")
+									}
+							}
+						sink(NULL)
+					}
+			}
+	}
+for (h in 1:2)
+	{
+		if (h == 1) simulationDirectory1 = "Simulations_3/Based_on_posterior_trees_unconstrained/WNV_gamma_ALL"
+		if (h == 2) simulationDirectory1 = "Simulations_3/Based_on_posterior_trees_constrained/WNV_gamma_ALL"
+		for (i in 1:nberOfSimulations)
+			{
+				simulationDirectory2 = gsub("gamma_ALL","biased_samp",simulationDirectory1)
+				if (i == 1) dir.create(file.path(simulationDirectory2), showWarnings=F)
+				tree = read.tree(paste0(simulationDirectory1,"/TreeSimulations_",i,".tre"))
+				tab1 = read.csv(paste0(simulationDirectory1,"/TreeSimulations_",i,".csv"), head=T)
+				tree$tip.label = gsub("'","",tree$tip.label)
+				if (h == 1)
+					{
+						ancestral_lon = tab1[which(tab1[,"node1"]%in%tab1[,"node2"])[1],"startLon"]
+						nodesToDiscard = tab1[which((!tab1[,"node2"]%in%tab1[,"node1"])&(tab1[,"endLon"]<(ancestral_lon))),"node2"]
+					}
+				if (h == 2) # -86.21066 = -66.94889-((-66.94889-(-124.7342))/3), eastern third of continental US (minus Alaska)
+					{
+						nodesToDiscard = tab1[which((!tab1[,"node2"]%in%tab1[,"node1"])&(tab1[,"endLon"]<(-86.21066))),"node2"]
+					}
+				tree = drop.tip(tree, nodesToDiscard); subTrees = list()
+				for (k in 1:length(trees))
+					{
+						subTrees[[k]] = drop.tip(trees[[k]], trees[[k]]$tip.label[!trees[[k]]$tip.label%in%tree$tip.label])
+					}
+				class(subTrees) = "multiPhylo"	
+				writeNexus(subTrees, paste0(simulationDirectory2,"/EmpiricalTrees_",i,".trees"))
+				tab2 = matrix(nrow=length(tree$tip.label), ncol=4); tab2[,1] = gsub("'","",tree$tip.label)
+				colnames(tab2) = c("trait","collection_date","latitude","longitude")
+				for (k in 1:length(tree$tip.label))
+					{
+						index = which(tab1[,"tipLabel"]==tree$tip.label[k])
+						tab2[k,"collection_date"] = tab1[index,"endYear"]
+						tab2[k,"latitude"] = tab1[index,"endLat"]
+						tab2[k,"longitude"] = tab1[index,"endLon"]
+					}
+				template = scan("LogN_tmp.xml", what="", sep="\n", quiet=T, blank.lines.skip=F)
+				sink(file=paste0(simulationDirectory2,"/TreeSimulations_",i,".xml"))
+				for (k in 1:length(template))
+					{
+						if (grepl("SIMULATION_NAME",template[k]))
+							{
+								template[k] = gsub("SIMULATION_NAME",paste0(simulationDirectory2,"/TreeSimulations_",i),template[k])
+							}
+					}
+				for (k in 1:length(template))
+					{
+						cat(template[k],"\n")
+						if (grepl("Insert taxa blocks",template[k]))
+							{
+								cat(paste0("\t<taxa id=\"taxa\">","\n"))
+								for (m in 1:dim(tab2)[1])
+									{
+										if (!is.na(tab2[m,"longitude"]))
+											{
+												collectionDate = tab2[m,"collection_date"]
+												latitude = round(as.numeric(tab2[m,"latitude"]),4)
+												longitude = round(as.numeric(tab2[m,"longitude"]),4)								
+												cat(paste0("\t\t<taxon id=\"",tab2[m,"trait"],"\">","\n"))
+												cat(paste0("\t\t\t<date value=\"",collectionDate,"\" direction=\"forwards\" units=\"years\"/>","\n"))
+												cat("\t\t\t<attr name=\"latitude\">\n")
+												cat(paste0("\t\t\t\t",latitude,"\n"))
+												cat("\t\t\t</attr>\n")
+												cat("\t\t\t<attr name=\"longitude\">\n")
+												cat(paste0("\t\t\t\t",longitude,"\n"))
+												cat("\t\t\t</attr>\n")
+												cat("\t\t\t<attr name=\"location\">\n")
+												cat(paste0("\t\t\t\t",latitude," ",longitude,"\n"))
+												cat("\t\t\t</attr>\n")
+												cat("\t\t</taxon>\n")
+											}
+									}
+								cat("\t</taxa>","\n")
+							}
+						if (grepl("Insert alignment blocks",template[k]))
+							{
+								cat(paste0("\t<alignment id=\"alignment\" dataType=\"nucleotide\">","\n"))
+								for (m in 1:dim(tab2)[1])
+									{
+										if (!is.na(tab2[m,"longitude"]))
+											{
+												cat("\t\t<sequence>\n")
+												cat(paste0("\t\t\t<taxon idref=\"",tab2[m,"trait"],"\"/>","\n"))
+												cat("\t\t\tNNNN\n")
+												cat("\t\t</sequence>\n")
+											}
+									}
+								cat("\t</alignment>","\n")
+							}
+						if (grepl("Insert starting tree blocks",template[k]))
+							{
+								cat(paste0("\t<empiricalTreeDistributionModel id=\"treeModel\" fileName=\"",simulationDirectory2,"/EmpiricalTrees_",i,".trees\">","\n"))
+								cat(paste0("\t\t<taxa idref=\"taxa\"/>","\n"))
+								cat("\t</empiricalTreeDistributionModel>","\n")
+							}
+					}
+				sink(NULL)
+			}
+	}
+
+		# 1.4.3. Extracting the spatio-temporal information embedded in 100 posterior trees
+
+showingTheFirstExtraction = FALSE
+for (h in 1:2)
+	{
+		if (h == 1) simulationDirectory1 = "Simulations_3/Based_on_posterior_trees_unconstrained/WNV_gamma_ALL"
+		if (h == 2) simulationDirectory1 = "Simulations_3/Based_on_posterior_trees_constrained/WNV_gamma_ALL"
+		for (i in 2:nberOfSimulations)
+			{
+				for (j in 1:length(nberOfBranchesToKeep))
+					{
+						simulationDirectory2 = gsub("gamma","unif_S",gsub("ALL",nberOfBranchesToKeep[j],simulationDirectory1))
+						localTreesDirectory = paste0(simulationDirectory2,"/TreeSimulations_",i,"_ext/")
+						allTrees = scan(paste0(simulationDirectory2,"/TreeSimulations_",i,".trees"), what="", sep="\n", quiet=T)
+						burnIn = round(sum(grepl("tree STATE_",allTrees))*0.1) # 10% of sampled trees
+						randomSampling = FALSE; nberOfTreesToSample = 100; coordinateAttributeName = "location"; nberOfCores = 10
+						treeExtractions(localTreesDirectory, allTrees, burnIn, randomSampling, nberOfTreesToSample,
+										mostRecentSamplingDatum, coordinateAttributeName, nberOfCores)
+						if (showingTheFirstExtraction)
+							{
+								tab = read.csv(paste0(localTreesDirectory,"/TreeExtractions_1.csv"), head=T)
+								plot(tab[,c("endLon","endLat")], col=NA)
+								for (k in 1:1)
+									{
+										tab = read.csv(paste0(localTreesDirectory,"/TreeExtractions_",k,".csv"), head=T)
+										for (l in 1:dim(tab)[1]) segments(tab[l,"startLon"],tab[l,"startLat"],tab[l,"endLon"],tab[l,"endLat"], lwd=0.1)
+									}
+							}
+					}
+			}
+	}
+for (h in 1:2)
+	{
+		if (h == 1) simulationDirectory1 = "Simulations_3/Based_on_posterior_trees_unconstrained/WNV_gamma_ALL"
+		if (h == 2) simulationDirectory1 = "Simulations_3/Based_on_posterior_trees_constrained/WNV_gamma_ALL"
+		for (i in 1:nberOfSimulations)
+			{
+				simulationDirectory2 = gsub("gamma_ALL","biased_samp",simulationDirectory1)
+				localTreesDirectory = paste0(simulationDirectory2,"/TreeSimulations_",i,"_ext/")
+				allTrees = scan(paste0(simulationDirectory2,"/TreeSimulations_",i,".trees"), what="", sep="\n", quiet=TRUE)
+				burnIn = round(sum(grepl("tree STATE_",allTrees))*0.1) # 10% of sampled trees
+				randomSampling = FALSE; nberOfTreesToSample = 100; coordinateAttributeName = "location"; nberOfCores = 5
+				treeExtractions(localTreesDirectory, allTrees, burnIn, randomSampling, nberOfTreesToSample,
+								mostRecentSamplingDatum, coordinateAttributeName, nberOfCores)
+			}
+	}
+
+	# 1.5. Estimating the dispersal metrics based on the RRW simulations conducted along subtrees (with bias or not)
+
+simulationDirectory = "Simulations_3/Based_on_posterior_trees_constrained"
+simulationDirectory = "Simulations_3/Based_on_posterior_trees_unconstrained"
+nberOfSimulations = 5; nberOfExtractionFiles = 100; nberOfBranchesToKeep = seq(800,100,-100)
+simulationDirectory1 = paste0(simulationDirectory,"/WNV_gamma_ALL"); nberOfSimulations = 5
+timeSlices = 200; onlyTipBranches = F; showingPlots = F; nberOfCores = 1; slidingWindow = 1; simulations = FALSE
+registerDoMC(cores=length(nberOfBranchesToKeep))
+for (i in 1:nberOfSimulations)
+	{
+		buffer = list()
+		buffer = foreach(j = 1:length(nberOfBranchesToKeep)) %dopar% {
+		# for (j in 1:length(nberOfBranchesToKeep)) {
+				simulationDirectory2 = gsub("gamma","unif_S",gsub("ALL",nberOfBranchesToKeep[j],simulationDirectory1))
+				localTreesDirectory = paste0(simulationDirectory2,"/TreeSimulations_",i,"_ext")
+				outputName = paste0(gsub("WNV_","Dispersal_statistics/WNV_",gsub("gamma","unif_S",gsub("ALL",nberOfBranchesToKeep[j],simulationDirectory1))),"_simulation_",i)
+				if (!file.exists(paste0(outputName,"_estimated_dispersal_statistics.txt")))
+					{
+						spreadStatistics(localTreesDirectory, nberOfExtractionFiles, timeSlices, onlyTipBranches, showingPlots, outputName, nberOfCores, slidingWindow, simulations)
+					}
+				j
+			}
+	}
+buffer = list()
+buffer = foreach(i = 1:nberOfSimulations) %dopar% {
+# for (i in 1:nberOfSimulations) {			
+		simulationDirectory2 = gsub("gamma_ALL","biased_samp",simulationDirectory1)
+		localTreesDirectory2 = paste0(simulationDirectory2,"/TreeSimulations_",i,"_ext")
+		outputName = paste0(gsub("WNV_","Dispersal_statistics/WNV_",gsub("gamma_ALL","biased_samp",simulationDirectory1)),"_simulation_",i)
+		if (!file.exists(paste0(outputName,"_estimated_dispersal_statistics.txt")))
+			{
+				spreadStatistics(localTreesDirectory2, nberOfExtractionFiles, timeSlices, onlyTipBranches, showingPlots, outputName, nberOfCores, slidingWindow, simulations)
+			}
+		i
+	}
+
+tab_MLDV_branches_list = list(); tab_MDCs_branches_list = list(); tab_WLDV_branches_list = list(); tab_WDCs_branches_list = list(); tab_IBD_signal_rP2_list = list()
+max_MLDV_branches = 0; max_MDCs_branches = 0; max_WLDV_branches = 0; max_WDCs_branches = 0; max_IBD_signal_rP2 = 0
+for (i in 1:nberOfSimulations)
+	{
+		tab_MLDV_branches = matrix(nrow=nberOfExtractionFiles, ncol=length(nberOfBranchesToKeep)+1); colnames(tab_MLDV_branches) = c("SB",paste0(nberOfBranchesToKeep,"_tips"))
+		tab_MDCs_branches = matrix(nrow=nberOfExtractionFiles, ncol=length(nberOfBranchesToKeep)+1); colnames(tab_MDCs_branches) = c("SB",paste0(nberOfBranchesToKeep,"_tips"))
+		tab_WLDV_branches = matrix(nrow=nberOfExtractionFiles, ncol=length(nberOfBranchesToKeep)+1); colnames(tab_WLDV_branches) = c("SB",paste0(nberOfBranchesToKeep,"_tips"))
+		tab_WDCs_branches = matrix(nrow=nberOfExtractionFiles, ncol=length(nberOfBranchesToKeep)+1); colnames(tab_WDCs_branches) = c("SB",paste0(nberOfBranchesToKeep,"_tips"))
+		tab_IBD_signal_rP2 = matrix(nrow=nberOfExtractionFiles, ncol=length(nberOfBranchesToKeep)+1); colnames(tab_IBD_signal_rP2) = c("SB",paste0(nberOfBranchesToKeep,"_tips"))
+		for (j in 0:length(nberOfBranchesToKeep))
+			{
+				if (j == 0)
+					{
+						prefix = paste0(gsub("WNV_","Dispersal_statistics/WNV_",gsub("gamma_ALL","biased_samp",simulationDirectory1)),"_simulation_",i)
+					}	else	{
+						prefix = paste0(gsub("WNV_","Dispersal_statistics/WNV_",gsub("gamma","unif_S",gsub("ALL",nberOfBranchesToKeep[j],simulationDirectory1))),"_simulation_",i)
+					}
+				J = j+1
+				if (file.exists(paste0(prefix,"_estimated_dispersal_statistics.txt")))
+					{
+						tab = read.table(paste0(prefix,"_estimated_dispersal_statistics.txt"), head=T)
+						tab_MLDV_branches[,J] = tab[,"mean_branch_dispersal_velocity"]
+						tab_MDCs_branches[,J] = tab[,"original_diffusion_coefficient"]
+						tab_WLDV_branches[,J] = tab[,"weighted_branch_dispersal_velocity"]
+						tab_WDCs_branches[,J] = tab[,"weighted_diffusion_coefficient"]
+						tab_IBD_signal_rP2[,J] = tab[,"isolation_by_distance_signal_rP2"]
+					}
+			}
+		tab_MLDV_branches_list[[i]] = tab_MLDV_branches; tab_MDCs_branches_list[[i]] = tab_MDCs_branches
+		tab_WLDV_branches_list[[i]] = tab_WLDV_branches; tab_WDCs_branches_list[[i]] = tab_WDCs_branches
+		tab_IBD_signal_rP2_list[[i]] = tab_IBD_signal_rP2
+		if (max_MLDV_branches < max(tab_MLDV_branches, na.rm=T)) max_MLDV_branches = max(tab_MLDV_branches, na.rm=T)
+		if (max_MDCs_branches < max(tab_MDCs_branches, na.rm=T)) max_MDCs_branches = max(tab_MDCs_branches, na.rm=T)
+		if (max_WLDV_branches < max(tab_WLDV_branches, na.rm=T)) max_WLDV_branches = max(tab_WLDV_branches, na.rm=T)
+		if (max_WDCs_branches < max(tab_WDCs_branches, na.rm=T)) max_WDCs_branches = max(tab_WDCs_branches, na.rm=T)
+		if (max_IBD_signal_rP2 < max(tab_IBD_signal_rP2, na.rm=T)) max_IBD_signal_rP2 = max(tab_IBD_signal_rP2, na.rm=T)
+	}
+
+pdf(paste0(simulationDirectory,"/Dispersal_stats.pdf"), width=9.0, height=2.7) # dev.new(width=9.0, height=2.7)
+par(mfrow=c(1,3), mgp=c(0,0,0), oma=c(0,0.5,0,0.1), mar=c(3.3,3.7,1.5,1.5), lwd=0.2, col="gray50"); cexLab = 1.07; cexAxis = 0.95; tck = -0.02
+bar_95HPD = function(x, vS)
+	{
+		hpd = HDInterval::hdi(vS)[1:2]
+		arrows(x, hpd[2], x, hpd[1], angle=90, code=3, length=0.015, col="gray30", lwd=0.3)
+	}
+x_positions = c(900,nberOfBranchesToKeep); x_deltas = c(-30,-15,0,15,30); x_labels = c("",rev(nberOfBranchesToKeep),"SB","")
+plot(x_positions, tab_WLDV_branches_list[[1]][1,], ann=F, axes=F, pch=16, cex=0.3, col=NA, xlim=c(68,932), ylim=c(0,max_WLDV_branches))
+for (i in 1:nberOfSimulations)
+	{
+		median_values_x = rep(NA, dim(tab_WLDV_branches_list[[i]])[2])
+		median_values_y = rep(NA, dim(tab_WLDV_branches_list[[i]])[2])
+		for (j in 1:dim(tab_WDCs_branches_list[[i]])[2])
+			{
+				median_values_x[j] = x_positions[j]+x_deltas[i]
+				median_values_y[j] = median(tab_WLDV_branches_list[[i]][,j])
+			}
+		lines(median_values_x, median_values_y, lwd=0.3, col=rgb(204,0,0,255,maxColorValue=255))
+	}
+for (i in 1:nberOfSimulations)
+	{
+		for (j in 1:dim(tab_WLDV_branches_list[[i]])[2])
+			{
+				bar_95HPD(x_positions[j]+x_deltas[i], tab_WLDV_branches_list[[i]][,j])
+				points(x_positions[j]+x_deltas[i], median(tab_WLDV_branches_list[[i]][,j]), pch=16, cex=0.6, col=rgb(204,0,0,255,maxColorValue=255))
+				points(x_positions[j]+x_deltas[i], median(tab_WLDV_branches_list[[i]][,j]), pch=1, cex=0.6, col="gray30", lwd=0.1)
+			}
+	}
+axis(side=1, lwd.tick=0.3, cex.axis=0.94, mgp=c(0,0,0), lwd=0, tck=0, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,1000,100), labels=x_labels, pos=0)
+axis(side=2, lwd.tick=0.3, cex.axis=cexAxis, mgp=c(0,0.45,0), lwd=0.3, tck=tck, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,500,100))
+title(ylab="Weighted lineage dispersal velocity (km/year)", cex.lab=cexLab, mgp=c(2.1,0,0), col.lab="gray30")
+title(xlab="Number of tip nodes in the subsampled tree", cex.lab=cexLab, mgp=c(1.2,0,0), col.lab="gray30")
+plot(x_positions, tab_WDCs_branches_list[[1]][1,], ann=F, axes=F, pch=16, cex=0.3, col=NA, xlim=c(68,932), ylim=c(0,max_WDCs_branches))
+for (i in 1:nberOfSimulations)
+	{
+		median_values_x = rep(NA, dim(tab_WDCs_branches_list[[i]])[2])
+		median_values_y = rep(NA, dim(tab_WDCs_branches_list[[i]])[2])
+		for (j in 1:dim(tab_WDCs_branches_list[[i]])[2])
+			{
+				median_values_x[j] = x_positions[j]+x_deltas[i]
+				median_values_y[j] = median(tab_WDCs_branches_list[[i]][,j])
+			}
+		lines(median_values_x, median_values_y, lwd=0.3, col=rgb(204,0,0,255,maxColorValue=255))
+	}
+for (i in 1:nberOfSimulations)
+	{
+		for (j in 1:dim(tab_WDCs_branches_list[[i]])[2])
+			{
+				bar_95HPD(x_positions[j]+x_deltas[i], tab_WDCs_branches_list[[i]][,j])
+				points(x_positions[j]+x_deltas[i], median(tab_WDCs_branches_list[[i]][,j]), pch=16, cex=0.6, col=rgb(204,0,0,255,maxColorValue=255))
+				points(x_positions[j]+x_deltas[i], median(tab_WDCs_branches_list[[i]][,j]), pch=1, cex=0.6, col="gray30", lwd=0.1)
+			}
+	}
+axis(side=1, lwd.tick=0.3, cex.axis=0.94, mgp=c(0,0,0), lwd=0, tck=0, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,1000,100), labels=x_labels, pos=0)
+axis(side=2, lwd.tick=0.3, cex.axis=cexAxis, mgp=c(0,0.45,0), lwd=0.3, tck=tck, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,450000,150000))
+title(ylab=expression("  Weighted diffusion coefficient (km"^2*"/year)"), cex.lab=cexLab, mgp=c(2.1,0,0), col.lab="gray30")
+title(xlab="Number of tip nodes in the subsampled tree", cex.lab=cexLab, mgp=c(1.2,0,0), col.lab="gray30")
+plot(x_positions, tab_IBD_signal_rP2_list[[1]][1,], ann=F, axes=F, pch=16, cex=0.3, col=NA, xlim=c(68,932), ylim=c(-0.08,max_IBD_signal_rP2))
+for (i in 1:nberOfSimulations)
+	{
+		median_values_x = rep(NA, dim(tab_IBD_signal_rP2_list[[i]])[2])
+		median_values_y = rep(NA, dim(tab_IBD_signal_rP2_list[[i]])[2])
+		for (j in 1:dim(tab_WDCs_branches_list[[i]])[2])
+			{
+				median_values_x[j] = x_positions[j]+x_deltas[i]
+				median_values_y[j] = median(tab_IBD_signal_rP2_list[[i]][,j])
+			}
+		lines(median_values_x, median_values_y, lwd=0.3, col=rgb(204,0,0,255,maxColorValue=255))
+	}
+for (i in 1:nberOfSimulations)
+	{
+		for (j in 1:dim(tab_IBD_signal_rP2_list[[i]])[2])
+			{
+				bar_95HPD(x_positions[j]+x_deltas[i], tab_IBD_signal_rP2_list[[i]][,j])
+				points(x_positions[j]+x_deltas[i], median(tab_IBD_signal_rP2_list[[i]][,j]), pch=16, cex=0.6, col=rgb(204,0,0,255,maxColorValue=255))
+				points(x_positions[j]+x_deltas[i], median(tab_IBD_signal_rP2_list[[i]][,j]), pch=1, cex=0.6, col="gray30", lwd=0.1)
+			}
+	}
+axis(side=1, lwd.tick=0.3, cex.axis=0.94, mgp=c(0,0,0), lwd=0, tck=0, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,1000,100), labels=x_labels, pos=-0.08)
+axis(side=2, lwd.tick=0.3, cex.axis=cexAxis, mgp=c(0,0.45,0), lwd=0.3, tck=tck, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(-0.2,0.2,0.05))
+title(ylab="IBD signal (Pearson coefficient)", cex.lab=cexLab, mgp=c(2.1,0,0), col.lab="gray30")
+title(xlab="Number of tip nodes in the subsampled tree", cex.lab=cexLab, mgp=c(1.2,0,0), col.lab="gray30")
+dev.off()
 
 # 2. Comparing dispersal metrics estimated on real genomic datasets of viruses spreading in animal populations
 
