@@ -979,7 +979,8 @@ bar_95HPD = function(x, vS)
 		arrows(x, hpd[2], x, hpd[1], angle=90, code=3, length=0.015, col="gray30", lwd=0.3)
 	}
 x_positions = c(900,nberOfBranchesToKeep); x_deltas = c(-30,-15,0,15,30); x_labels = c("",rev(nberOfBranchesToKeep),"SB","")
-plot(x_positions, tab_WLDV_branches_list[[1]][1,], ann=F, axes=F, pch=16, cex=0.3, col=NA, xlim=c(68,932), ylim=c(0,max_WLDV_branches))
+# plot(x_positions, tab_WLDV_branches_list[[1]][1,], ann=F, axes=F, pch=16, cex=0.3, col=NA, xlim=c(68,932), ylim=c(0,380)) # unconstrained
+plot(x_positions, tab_WLDV_branches_list[[1]][1,], ann=F, axes=F, pch=16, cex=0.3, col=NA, xlim=c(68,932), ylim=c(0,240)) # constrained
 for (i in 1:nberOfSimulations)
 	{
 		median_values_x = rep(NA, dim(tab_WLDV_branches_list[[i]])[2])
@@ -1001,10 +1002,12 @@ for (i in 1:nberOfSimulations)
 			}
 	}
 axis(side=1, lwd.tick=0.3, cex.axis=0.94, mgp=c(0,0,0), lwd=0, tck=0, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,1000,100), labels=x_labels, pos=0)
-axis(side=2, lwd.tick=0.3, cex.axis=cexAxis, mgp=c(0,0.45,0), lwd=0.3, tck=tck, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,500,100))
+# axis(side=2, lwd.tick=0.3, cex.axis=cexAxis, mgp=c(0,0.45,0), lwd=0.3, tck=tck, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,500,100)) # unconstrained
+axis(side=2, lwd.tick=0.3, cex.axis=cexAxis, mgp=c(0,0.45,0), lwd=0.3, tck=tck, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,250,50)) # constrained
 title(ylab="Weighted lineage dispersal velocity (km/year)", cex.lab=cexLab, mgp=c(2.1,0,0), col.lab="gray30")
 title(xlab="Number of tip nodes in the subsampled tree", cex.lab=cexLab, mgp=c(1.2,0,0), col.lab="gray30")
-plot(x_positions, tab_WDCs_branches_list[[1]][1,], ann=F, axes=F, pch=16, cex=0.3, col=NA, xlim=c(68,932), ylim=c(0,max_WDCs_branches))
+# plot(x_positions, tab_WDCs_branches_list[[1]][1,], ann=F, axes=F, pch=16, cex=0.3, col=NA, xlim=c(68,932), ylim=c(0,420000)) # unconstrained
+plot(x_positions, tab_WDCs_branches_list[[1]][1,], ann=F, axes=F, pch=16, cex=0.3, col=NA, xlim=c(68,932), ylim=c(0,90000)) # constrained
 for (i in 1:nberOfSimulations)
 	{
 		median_values_x = rep(NA, dim(tab_WDCs_branches_list[[i]])[2])
@@ -1026,10 +1029,12 @@ for (i in 1:nberOfSimulations)
 			}
 	}
 axis(side=1, lwd.tick=0.3, cex.axis=0.94, mgp=c(0,0,0), lwd=0, tck=0, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,1000,100), labels=x_labels, pos=0)
-axis(side=2, lwd.tick=0.3, cex.axis=cexAxis, mgp=c(0,0.45,0), lwd=0.3, tck=tck, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,450000,150000))
+# axis(side=2, lwd.tick=0.3, cex.axis=cexAxis, mgp=c(0,0.45,0), lwd=0.3, tck=tck, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,450000,150000)) # unconstrained
+axis(side=2, lwd.tick=0.3, cex.axis=cexAxis, mgp=c(0,0.45,0), lwd=0.3, tck=tck, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,100000,25000)) # constrained
 title(ylab=expression("  Weighted diffusion coefficient (km"^2*"/year)"), cex.lab=cexLab, mgp=c(2.1,0,0), col.lab="gray30")
 title(xlab="Number of tip nodes in the subsampled tree", cex.lab=cexLab, mgp=c(1.2,0,0), col.lab="gray30")
-plot(x_positions, tab_IBD_signal_rP2_list[[1]][1,], ann=F, axes=F, pch=16, cex=0.3, col=NA, xlim=c(68,932), ylim=c(-0.08,max_IBD_signal_rP2))
+# plot(x_positions, tab_IBD_signal_rP2_list[[1]][1,], ann=F, axes=F, pch=16, cex=0.3, col=NA, xlim=c(68,932), ylim=c(-0.07,0.19)) # unconstrained
+plot(x_positions, tab_IBD_signal_rP2_list[[1]][1,], ann=F, axes=F, pch=16, cex=0.3, col=NA, xlim=c(68,932), ylim=c(-0.03,0.27)) # constrained
 for (i in 1:nberOfSimulations)
 	{
 		median_values_x = rep(NA, dim(tab_IBD_signal_rP2_list[[i]])[2])
@@ -1050,8 +1055,10 @@ for (i in 1:nberOfSimulations)
 				points(x_positions[j]+x_deltas[i], median(tab_IBD_signal_rP2_list[[i]][,j]), pch=1, cex=0.6, col="gray30", lwd=0.1)
 			}
 	}
-axis(side=1, lwd.tick=0.3, cex.axis=0.94, mgp=c(0,0,0), lwd=0, tck=0, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,1000,100), labels=x_labels, pos=-0.08)
-axis(side=2, lwd.tick=0.3, cex.axis=cexAxis, mgp=c(0,0.45,0), lwd=0.3, tck=tck, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(-0.2,0.2,0.05))
+# axis(side=1, lwd.tick=0.3, cex.axis=0.94, mgp=c(0,0,0), lwd=0, tck=0, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,1000,100), labels=x_labels, pos=-0.07) # unconstrained
+# axis(side=2, lwd.tick=0.3, cex.axis=cexAxis, mgp=c(0,0.45,0), lwd=0.3, tck=tck, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(-0.2,0.2,0.05)) # unconstrained
+axis(side=1, lwd.tick=0.3, cex.axis=0.94, mgp=c(0,0,0), lwd=0, tck=0, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(0,1000,100), labels=x_labels, pos=-0.03) # constrained
+axis(side=2, lwd.tick=0.3, cex.axis=cexAxis, mgp=c(0,0.45,0), lwd=0.3, tck=tck, col.tick="gray30", col.axis="gray30", col="gray30", at=seq(-0.5,0.30,0.10)) # constrained
 title(ylab="IBD signal (Pearson coefficient)", cex.lab=cexLab, mgp=c(2.1,0,0), col.lab="gray30")
 title(xlab="Number of tip nodes in the subsampled tree", cex.lab=cexLab, mgp=c(1.2,0,0), col.lab="gray30")
 dev.off()
